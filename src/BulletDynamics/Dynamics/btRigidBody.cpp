@@ -256,6 +256,25 @@ void btRigidBody::updateInertiaTensor()
 	m_invInertiaTensorWorld = m_worldTransform.getBasis().scaled(m_invInertiaLocal) * m_worldTransform.getBasis().transpose();
 }
 
+SIMD_FORCE_INLINE btMatrix3x3 
+safeInverse( const btMatrix3x3 &M )
+{
+  static btMatrix3x3 zeroM(0,0,0,0,0,0,0,0,0);
+  
+  btVector3 co(M.cofac(1, 1, 2, 2), M.cofac(1, 2, 2, 0), M.cofac(1, 0, 2, 1));
+  btScalar det = M[0].dot(co);
+  
+  if( fabsf( det ) < 1000.0f * FLT_MIN )
+  {
+    return zeroM;
+  }
+
+  btScalar s = btScalar(1.0) / det;
+  return btMatrix3x3(co.x() * s, M.cofac(0, 2, 2, 1) * s, M.cofac(0, 1, 1, 2) * s,
+          co.y() * s, M.cofac(0, 0, 2, 2) * s, M.cofac(0, 2, 1, 0) * s,
+          co.z() * s, M.cofac(0, 1, 2, 0) * s, M.cofac(0, 0, 1, 1) * s);
+}
+
 btVector3 btRigidBody::getLocalInertia() const
 {
 
@@ -311,7 +330,7 @@ btVector3 btRigidBody::computeGyroscopicImpulse(btScalar step) const
         const btVector3 fw = evalEulerEqn(w1, w0, btVector3(0,0,0), step, I);
         const btMatrix3x3 dfw = evalEulerEqnDeriv(w1, w0, step, I);
 
-        const btMatrix3x3 dfw_inv = dfw.inverse(); 
+        const btMatrix3x3 dfw_inv = dfw.safeInverse(); 
         btVector3 dw;
 
         dw = dfw_inv*fw;
